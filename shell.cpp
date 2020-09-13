@@ -6,9 +6,11 @@
 #include <bits/stdc++.h>
 #include <string>
 #include <cctype>
+// #include <filesystem>
+// namespace fs = std::filesystem;
 using namespace std;
 
-void removeSpaces(string &str) 
+/* void removeSpaces(string &str) 
 { 
     // n is length of the original string 
     int n = str.length(); 
@@ -65,7 +67,7 @@ void removeSpaces(string &str)
         str.erase(str.begin() + i, str.end()); 
     else
         str.erase(str.begin() + i - 1, str.end()); 
-}
+} */
 
 
 vector<string> split(string str)
@@ -110,27 +112,33 @@ char** vec_to_char_array(vector<string>& parts)
 int main ()
 {
     vector<int> bgs;
-    while(true)
-    {
-        for(int i=0; i<bgs.size(); i++)
-        {
-            waitpid(bgs[i], 0, 0);
-        }
-    }
+       
+    
     while (true)
     {
+        bool bg = false;
+        bool dir = false; 
+        // check on background processes before getting next;
+        for(int k=0; k<bgs.size(); k++)
+        {
+            if(waitpid(bgs[k], 0, WNOHANG) == bgs[k])
+            {
+                cout << "Process: " << bgs[k] << " ended" << endl;
+                bgs.erase(bgs.begin() + k);
+                k--;
+            }
+        }
+
         cout << "My Shell$ "; //print a prompt
         string inputline;
         getline (cin, inputline); //get a line from standard input
-        
-        //cout << "inputline is: " << inputline << endl;
         if (inputline == string("exit"))
         {
             cout << "Bye!! End of shell" << endl;
             break;
         }
         
-        bool bg = false;
+        // input string conversions
         vector<string> parts = split(inputline);
         if(parts[parts.size()-1] == "&")
         {
@@ -139,10 +147,35 @@ int main ()
         }
         char** args = vec_to_char_array(parts);
 
+        // if change directory is needed.
+        
+            
         int pid = fork ();
         if (pid == 0)
         {   
+            if(find(parts.begin(), parts.end(), "cd") != parts.end())
+            {   
+                dir = true;
+                string filename;
+                char** path_args = args +1;
+                if(chdir(*path_args) != 0)
+                {
+                    perror("operation failed");
+                }
+                else
+                {
+                    char * cwd;
+                    cwd = (char*) malloc( PATH_MAX * sizeof(char) );
+                    getcwd(cwd,PATH_MAX);
+                    cout << "Current path is: " << cwd <<endl;
+                }
+                
+            }
+
+            
             execvp (args[0], args);
+            
+            
         }
         else
         { 
