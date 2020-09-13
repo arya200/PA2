@@ -1,11 +1,12 @@
 #include <iostream>
 #include <unistd.h>
-#include  <sys/types.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <vector>
 #include <bits/stdc++.h>
 #include <string>
 #include <cctype>
+#include <fcntl.h>
 // #include <filesystem>
 // namespace fs = std::filesystem;
 using namespace std;
@@ -112,12 +113,16 @@ char** vec_to_char_array(vector<string>& parts)
 int main ()
 {
     vector<int> bgs;
-       
+    
     
     while (true)
     {
+        bool IOwrite = false;
+        bool IOread = false;
         bool bg = false;
-        bool dir = false; 
+        bool dir = false;
+        string filename = "";
+
         // check on background processes before getting next;
         for(int k=0; k<bgs.size(); k++)
         {
@@ -138,24 +143,80 @@ int main ()
             break;
         }
         
-        // input string conversions
+        // trim all spaces and put in a vector
         vector<string> parts = split(inputline);
+
+        //adjust vector if background process is needed
         if(parts[parts.size()-1] == "&")
         {
             parts.resize(parts.size()-1);
             bg = true;
         }
+
+        //convert to const char array
         char** args = vec_to_char_array(parts);
 
-        // if change directory is needed.
+
         
+        
+        //if I/O operations
+        vector<string>::iterator itr;
+        itr = find(parts.begin(), parts.end(), ">");
+        if(itr!=parts.end())
+        {   
+            IOwrite=true;
+            inputline ="";
+            int pos = itr - parts.begin();
             
+            //string command ="";
+            filename = parts[pos +1];
+            for(int i=0; i<pos; i++)
+            {
+                inputline += parts[i] + " ";
+            }
+
+            parts = split(inputline);
+            args = vec_to_char_array(parts);
+        }
+        itr = find(parts.begin(), parts.end(), "<");
+        if(itr!=parts.end())
+        {   
+            IOread=true;
+            inputline ="";
+            int pos = itr - parts.begin();
+            
+            //string command ="";
+            filename = parts[pos +1];
+            for(int i=0; i<pos; i++)
+            {
+                inputline += parts[i] + " ";
+            }
+
+            parts = split(inputline);
+            args = vec_to_char_array(parts);
+        }
+
+        
         int pid = fork ();
         if (pid == 0)
-        {   
+        {  
+            if(IOwrite)
+            {
+                int fd = open(filename.c_str(), O_WRONLY|O_CREAT|O_RDONLY, S_IWUSR| S_IRUSR);
+                dup2(fd, 1);
+                //close(fd);
+            }
+
+            if(IOread)
+            {
+
+                int fd = open(filename.c_str(), O_RDONLY, S_IWUSR|S_IRUSR);
+                dup2(fd, 0);
+                close(fd); 
+            }
+            // if change directory is needed.
             if(find(parts.begin(), parts.end(), "cd") != parts.end())
-            {   
-                dir = true;
+            {  
                 string filename;
                 char** path_args = args +1;
                 if(chdir(*path_args) != 0)
@@ -171,11 +232,7 @@ int main ()
                 }
                 
             }
-
-            
             execvp (args[0], args);
-            
-            
         }
         else
         { 
@@ -188,7 +245,8 @@ int main ()
             {
                 bgs.push_back(pid);
             }
-            
+
+           
         }
     }
 }
