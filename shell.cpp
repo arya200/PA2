@@ -74,21 +74,39 @@ using namespace std;
 vector<string> split(string str)
 {
     vector<string> bgs;
-    istringstream ss(str); 
+    istringstream ss(str);
+    string token;
     // Traverse through all words
     //cout << str.length();
-    int i = 0; 
-    do { 
-        // Read a word 
-        string word;
-        ss >> word;
+    
+    // do { 
+    //     // Read a word 
+    //     string word;
+    //     ss >> word;
   
-        // Print the read word
-        bgs.push_back(word);
-        //i++;
-        // While there is more to read 
-    } while (ss);
-    bgs.resize(bgs.size()-1);
+    //     // Print the read word
+    //     bgs.push_back(word);
+    //     //i++;
+    //     // While there is more to read 
+    // } while (ss);
+    // bgs.resize(bgs.size()-1);
+    // return bgs;
+    if(str.find("|")!= -1)
+    {
+        while(getline(ss, token, '|')) 
+        {
+            cout << token <<endl;
+            bgs.push_back(token);
+        }
+    }
+    else
+    {
+        while(getline(ss, token, ' ')) 
+        {
+            cout << token <<endl;
+            bgs.push_back(token);
+        }
+    }
     return bgs;
 }
 
@@ -113,15 +131,21 @@ char** vec_to_char_array(vector<string>& parts)
 int main ()
 {
     vector<int> bgs;
+    char* prev;
+    prev = (char*) malloc( PATH_MAX * sizeof(char) );
     
     
     while (true)
     {
+        int pid = 100;
         bool IOwrite = false;
         bool IOread = false;
         bool bg = false;
         bool dir = false;
         string filename = "";
+        // char *prev;
+        // prev = (char*) malloc( PATH_MAX * sizeof(char) )
+        // getcwd(prev, PATH_MAX);
 
         // check on background processes before getting next;
         for(int k=0; k<bgs.size(); k++)
@@ -140,21 +164,21 @@ int main ()
         if (inputline == string("exit"))
         {
             cout << "Bye!! End of shell" << endl;
+            free(prev);
+            prev = NULL;
             break;
         }
         
-        // trim all spaces and put in a vector
-        vector<string> parts = split(inputline);
+        
+        vector<string> parts = split(inputline);// trim all spaces and put in a vector
 
         //adjust vector if background process is needed
         if(parts[parts.size()-1] == "&")
         {
             parts.resize(parts.size()-1);
             bg = true;
-        }
-
-        //convert to const char array
-        char** args = vec_to_char_array(parts);
+        }       
+        char** args = vec_to_char_array(parts);  //convert to const char array
 
 
         
@@ -196,8 +220,55 @@ int main ()
             args = vec_to_char_array(parts);
         }
 
-        
-        int pid = fork ();
+        // if change directory is needed.
+        if(find(parts.begin(), parts.end(), "cd") != parts.end())
+        {  
+            dir = true;
+            
+            if(find(parts.begin(), parts.end(), "-") != parts.end())
+            {
+                
+                if (chdir(prev) != 0)
+                {
+                    perror("operation failed");
+                }
+                else
+                {
+                    getcwd(prev, PATH_MAX);
+                    cout << "Current path is: " << prev << endl;
+                }
+                //free(prev);
+            }
+            else
+            {
+                string filename;
+                char** path_args = args +1;
+                getcwd(prev, PATH_MAX);
+                //cout << "path arg is: " << **path_args << endl;
+                if(chdir(*path_args) != 0)
+                {
+                    perror("operation failed");
+                }
+                else
+                {
+                    char* cwd;
+                    cwd = (char*) malloc( PATH_MAX * sizeof(char) );
+                    getcwd(cwd,PATH_MAX);
+                    cout << "Current path is: " << cwd <<endl;
+                    free(cwd);
+                    cwd = NULL;
+                    
+                }
+            }
+            
+        }
+
+
+        if(!dir)
+        {
+            pid = fork();
+        }
+    
         if (pid == 0)
         {  
             if(IOwrite)
@@ -214,24 +285,7 @@ int main ()
                 dup2(fd, 0);
                 close(fd); 
             }
-            // if change directory is needed.
-            if(find(parts.begin(), parts.end(), "cd") != parts.end())
-            {  
-                string filename;
-                char** path_args = args +1;
-                if(chdir(*path_args) != 0)
-                {
-                    perror("operation failed");
-                }
-                else
-                {
-                    char * cwd;
-                    cwd = (char*) malloc( PATH_MAX * sizeof(char) );
-                    getcwd(cwd,PATH_MAX);
-                    cout << "Current path is: " << cwd <<endl;
-                }
-                
-            }
+            
             execvp (args[0], args);
         }
         else
